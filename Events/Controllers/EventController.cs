@@ -103,22 +103,7 @@ namespace Events.Controllers
                 return "Event is null";
             }
 
-            var request = new GetItemRequest
-            {
-                TableName = "Events",
-                Key = new Dictionary<string, AttributeValue>
-                 {
-                             { "id", new AttributeValue { S=_event.Id } }
-                 }
-            };
-            var response = await _dynamoDBClient.GetItemAsync(request);
-            Event ret = new Event
-            {
-                Id = response.Item["id"].S,
-                Name = response.Item["Name"].S,
-                Date = DateTime.Parse(response.Item["Date"].S),
-                Location = response.Item["Location"].S
-            };
+            var ret = await RetrieveEvent(_event.Id);
             if (ret != null)
             {
                 var request1 = new UpdateItemRequest
@@ -150,23 +135,8 @@ namespace Events.Controllers
         }
         public async Task<string> DeleteEventAsync(String id)
         {
-         
-            var request = new GetItemRequest
-            {
-                TableName = "Events",
-                Key = new Dictionary<string, AttributeValue>
-                 {
-                             { "id", new AttributeValue { S=id } }
-                 }
-            };
-            var response = await _dynamoDBClient.GetItemAsync(request);
-            Event ret = new Event
-            {
-                Id = response.Item["id"].S,
-                Name = response.Item["Name"].S,
-                Date = DateTime.Parse(response.Item["Date"].S),
-                Location = response.Item["Location"].S
-            };
+
+            var ret = await RetrieveEvent(id);
             if (ret != null)
             {
                 var request1 = new DeleteItemRequest
