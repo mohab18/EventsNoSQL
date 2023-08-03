@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation Template For Events API
+
+Resources:
+  EventsLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: EventsLambdaFunction
+      Runtime: dotnet6
+      Handler: Events::Events.Controllers.EventController::LambdaFunctionHandler
+      Role: !GetAtt EventsRole.Arn
+      Code:
+        S3Bucket: eventsapi
+        S3Key: publish.zip
+  EventsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: LambdaBasicExecutionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*  
+        - PolicyName: DynamoDBFullAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:*
+                Resource: "*"
+        - PolicyName: APIGatewayFullAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: apigateway:*
+                Resource: "*"      
+  ApiGateway:
+     Type: AWS::ApiGatewayV2::Api
+     Properties:
+       Name: Events
+       ProtocolType: HTTP
+
+  LambdaIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt EventsLambdaFunction.Arn
+      PayloadFormatVersion: "1.0"
+  Route1:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ApiGateway
+      RouteKey: GET /events
+      Target:
+         Fn::Join:
+          - ''
+          - - 'integrations/'
+            - !Ref LambdaIntegration
+  Route2:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ApiGateway
+      RouteKey: GET /events/{id}
+      Target:
+         Fn::Join:
+          - ''
+          - - 'integrations/'
+            - !Ref LambdaIntegration
+  Route3:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ApiGateway
+      RouteKey: DELETE /delete/{id}
+      Target:
+         Fn::Join:
+          - ''
+          - - 'integrations/'
+            - !Ref LambdaIntegration
+  Route4:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ApiGateway
+      RouteKey: PUT /put
+      Target:
+         Fn::Join:
+          - ''
+          - - 'integrations/'
+            - !Ref LambdaIntegration
+  Route5:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ApiGateway
+      RouteKey: POST /post
+      Target:
+         Fn::Join:
+          - ''
+          - - 'integrations/'
+            - !Ref LambdaIntegration
+  Deployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    Properties:
+      ApiId:
+        Ref: ApiGateway
+
+  DefStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+     ApiId:
+        Ref: ApiGateway
+      DeploymentId: 
+        Ref: Deployment
+      StageName: Def
+Outputs:
+  LambdaFunctionArn:
+    Value: !GetAtt EventsLambdaFunction.Arn
